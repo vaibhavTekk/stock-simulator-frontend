@@ -1,0 +1,17 @@
+.container {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+}
+
+.stock-list {
+  width: 30%;
+}
+
+.stock-details {
+  width: 70%;
+}
+
+table {
+  width: 100%;
+}
