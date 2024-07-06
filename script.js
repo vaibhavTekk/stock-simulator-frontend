@@ -1,83 +1,114 @@
-const apiUrl = "http://localhost:8080/stocks"; // Replace with your actual API URL
+// API base URL
+const apiUrl = "http://localhost:8080";
 
-async function fetchStockSymbols() {
-  return fetch(apiUrl)
-    .then(async (response) => {
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      const resp = await response.json();
-      return resp;
+document.addEventListener("DOMContentLoaded", function () {
+  const stockList = document.getElementById("stockList");
+  const stockDetails = document.getElementById("stockDetails").getElementsByTagName("tbody")[0];
+  const search = document.getElementById("search");
+  const transactionForm = document.getElementById("transactionForm");
+  const balance = document.getElementById("balance");
+  const currentStocks = document.getElementById("currentStocks");
+
+  let stocks = [];
+
+  function fetchStocks() {
+    fetch(`${apiUrl}/stocks`)
+      .then((response) => response.json())
+      .then((data) => {
+        stocks = data;
+        renderStockList(stocks);
+      });
+  }
+
+  function fetchUser() {
+    fetch(`${apiUrl}/stocks/user`)
+      .then((response) => response.json())
+      .then((user) => {
+        balance.innerText = user.balance.toFixed(2);
+      });
+  }
+
+  function fetchUserStocks() {
+    fetch(`${apiUrl}/stocks/user/stocks`)
+      .then((response) => response.json())
+      .then((userStocks) => {
+        renderUserStocks(userStocks);
+      });
+  }
+
+  fetchStocks();
+  fetchUser();
+  fetchUserStocks();
+
+  search.addEventListener("input", function () {
+    const searchTerm = search.value.toLowerCase();
+    const filteredStocks = stocks.filter((stock) => stock.toLowerCase().includes(searchTerm));
+    renderStockList(filteredStocks);
+  });
+
+  stockList.addEventListener("click", function (e) {
+    if (e.target && e.target.nodeName === "LI") {
+      const symbol = e.target.innerText;
+      fetch(`${apiUrl}/stocks/${symbol}`)
+        .then((response) => response.json())
+        .then((stock) => {
+          renderStockDetails(stock);
+        });
+    }
+  });
+
+  transactionForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+
+    const symbol = document.getElementById("symbol").value;
+    const quantity = document.getElementById("quantity").value;
+    const action = document.getElementById("action").value;
+
+    fetch(`${apiUrl}/stocks/${action}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: `symbol=${symbol}&quantity=${quantity}`,
     })
-    .catch((error) => {
-      console.error("Error fetching data:", error);
-      return []; // Return empty array on error
+      .then((response) => response.text())
+      .then((message) => {
+        alert(message);
+        fetchUser();
+        fetchUserStocks();
+        fetchStocks();
+      });
+  });
+
+  function renderStockList(stocks) {
+    stockList.innerHTML = "";
+    stocks.forEach((stock) => {
+      const li = document.createElement("li");
+      li.innerText = stock;
+      stockList.appendChild(li);
     });
-}
+  }
 
-function fetchStockDetails(symbol) {
-  const url = `${apiUrl}/${symbol}`;
-  return fetch(url)
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      return response.json();
-    })
-    .then((data) => data.prices) // Assuming the API returns an array of prices
-    .catch((error) => {
-      console.error(`Error fetching details for ${symbol}:`, error);
-      return []; // Return empty array on error
+  function renderStockDetails(stock) {
+    stockDetails.innerHTML = "";
+    stock.prices.forEach((priceEntry) => {
+      const row = stockDetails.insertRow();
+      const dateCell = row.insertCell(0);
+      const priceCell = row.insertCell(1);
+      const volumeCell = row.insertCell(2);
+
+      dateCell.innerText = priceEntry.date;
+      priceCell.innerText = priceEntry.price;
+      volumeCell.innerText = priceEntry.volume;
     });
-}
+  }
 
-function renderStocks(stocks) {
-  const stocksUl = document.getElementById("stocks");
-  stocksUl.innerHTML = "";
-  stocks.forEach((stock) => {
-    const li = document.createElement("li");
-    li.textContent = stock;
-    li.onclick = () => showStockDetails(stock);
-    stocksUl.appendChild(li);
-  });
-}
-
-function renderStockDetails(details) {
-  const tbody = document.getElementById("stock-details").querySelector("tbody");
-  tbody.innerHTML = "";
-  details.forEach((detail) => {
-    const tr = document.createElement("tr");
-    const dateTd = document.createElement("td");
-    dateTd.textContent = detail.date;
-    tr.appendChild(dateTd);
-    const priceTd = document.createElement("td");
-    priceTd.textContent = detail.price;
-    tr.appendChild(priceTd);
-    const volumeTd = document.createElement("td");
-    volumeTd.textContent = detail.volume;
-    tr.appendChild(volumeTd);
-    tbody.appendChild(tr);
-  });
-}
-
-function showStockDetails(stockSymbol) {
-  fetchStockDetails(stockSymbol)
-    .then((details) => renderStockDetails(details))
-    .catch((error) => console.error(`Error fetching details for ${stockSymbol}:`, error));
-}
-
-function searchStocks() {
-  const query = document.getElementById("search").value.toLowerCase();
-  fetchStockSymbols().then((stocks) => {
-    const filteredStocks = stocks.filter((stock) => stock.toLowerCase().includes(query));
-    renderStocks(filteredStocks);
-  });
-}
-
-function init() {
-  fetchStockSymbols()
-    .then((stocks) => renderStocks(stocks))
-    .catch((error) => console.error("Error initializing application:", error));
-}
-
-init();
+  function renderUserStocks(userStocks) {
+    currentStocks.innerHTML = "";
+    Object.entries(userStocks).forEach(([symbol, quantity]) => {
+      const li = document.createElement("li");
+      li.innerText = `${symbol}: ${quantity} shares`;
+      currentStocks.appendChild(li);
+    });
+  }
+});
